@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'screens/profile_screen.dart';
 import 'screens/auth_screen.dart';
-import 'screens/profile_setup_screen.dart';
 import 'services/firebase_service.dart';
 
 void main() async {
@@ -20,6 +19,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Messenger',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,

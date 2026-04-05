@@ -12,6 +12,7 @@ class UserProfileViewScreen extends StatefulWidget {
 
 class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
   String _friendshipStatus = 'none';
+  String? _pendingRequestId;
   bool _isLoading = true;
 
   @override
@@ -21,8 +22,14 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
   }
 
   Future<void> _loadFriendshipStatus() async {
-    final status = await FirebaseService.getFriendshipStatus(widget.user.uid);
-    if (mounted) setState(() { _friendshipStatus = status; _isLoading = false; });
+    final info = await FirebaseService.getFriendshipInfo(widget.user.uid);
+    if (mounted) {
+      setState(() {
+        _friendshipStatus = info.status;
+        _pendingRequestId = info.requestId;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _sendFriendRequest() async {
@@ -37,7 +44,7 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
 
   Future<void> _acceptRequest(String requestId) async {
     await FirebaseService.acceptFriendRequest(requestId, widget.user.uid);
-    if (mounted) setState(() => _friendshipStatus = 'accepted');
+    if (mounted) setState(() => _friendshipStatus = 'friends');
   }
 
   Future<void> _declineRequest(String requestId) async {
@@ -57,7 +64,29 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
           label: const Text('Start Chat'),
         );
       case 'pending':
+      case 'sent_pending':
         return const ElevatedButton(onPressed: null, child: Text('Friend Request Sent'));
+      case 'received_pending':
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton.icon(
+              onPressed: _pendingRequestId == null
+                  ? null
+                  : () => _acceptRequest(_pendingRequestId!),
+              icon: const Icon(Icons.check),
+              label: const Text('Accept'),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _pendingRequestId == null
+                  ? null
+                  : () => _declineRequest(_pendingRequestId!),
+              icon: const Icon(Icons.close),
+              label: const Text('Decline'),
+            ),
+          ],
+        );
       default:
         return ElevatedButton.icon(
           onPressed: _sendFriendRequest,

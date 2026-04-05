@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/firebase_service.dart';
 import '../models/user_model.dart';
+import '../models/friend_request_model.dart';
 import 'user_search_screen.dart';
 import 'chat_screen.dart';
 import 'auth_screen.dart';
@@ -53,9 +54,91 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   Future<void> _logout() async {
-    await FirebaseService.updateOnlineStatus(false);
+    try {
+      await FirebaseService.updateOnlineStatus(false);
+    } catch (_) {
+      // Ignore status update failures on logout.
+    }
     await FirebaseService.signOut();
-    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const AuthScreen()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This will permanently delete your account and profile. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await FirebaseService.deleteCurrentUserAccount();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete account: $e')),
+      );
+    }
+  }
+
+  Future<void> _acceptRequest(FriendRequestModel request) async {
+    try {
+      await FirebaseService.acceptFriendRequest(request.id, request.fromUid);
+      await _loadProfile();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Friend request accepted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  Future<void> _declineRequest(FriendRequestModel request) async {
+    try {
+      await FirebaseService.rejectFriendRequest(request.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Friend request declined')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
   }
 
   void _editProfile() {
@@ -75,9 +158,12 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             ElevatedButton(
               onPressed: () async {
                 await FirebaseService.updateUserProfile({'bio': bioController.text.trim()});
+                if (!mounted) return;
                 Navigator.pop(context);
                 _loadProfile();
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated successfully')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile updated successfully')),
+                );
               },
               child: const Text('Save Changes'),
             ),
@@ -98,9 +184,18 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           PopupMenuButton(
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'edit', child: Text('Edit Profile')),
+              const PopupMenuItem(value: 'delete', child: Text('Delete Account')),
               const PopupMenuItem(value: 'logout', child: Text('Logout')),
             ],
-            onSelected: (v) { if (v == 'edit') _editProfile(); else if (v == 'logout') _logout(); },
+            onSelected: (v) {
+              if (v == 'edit') {
+                _editProfile();
+              } else if (v == 'delete') {
+                _deleteAccount();
+              } else if (v == 'logout') {
+                _logout();
+              }
+            },
           ),
         ],
       ),
@@ -121,6 +216,140 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
                         child: Text(_currentUser!.bio, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
                       ),
+                    const Divider(height: 32),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Sent Requests',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    StreamBuilder<List<FriendRequestModel>>(
+                      stream: FirebaseService.getSentFriendRequests(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Could not load sent requests right now.',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          );
+                        }
+                        final sentRequests = snapshot.data ?? [];
+                        if (sentRequests.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'No pending sent requests',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                          );
+                        }
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: sentRequests.length,
+                          itemBuilder: (_, i) {
+                            final request = sentRequests[i];
+                            return FutureBuilder<UserModel?>(
+                              future: FirebaseService.getUserById(request.toUid),
+                              builder: (context, userSnap) {
+                                final receiverName = userSnap.data?.username ?? 'Unknown user';
+                                return ListTile(
+                                  leading: const CircleAvatar(child: Icon(Icons.person)),
+                                  title: Text(receiverName),
+                                  subtitle: const Text('Pending'),
+                                  trailing: const Icon(Icons.hourglass_top, color: Colors.orange),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const Divider(height: 32),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Incoming Requests',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    StreamBuilder<List<FriendRequestModel>>(
+                      stream: FirebaseService.getFriendRequests(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Could not load requests right now.',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          );
+                        }
+                        final requests = snapshot.data ?? [];
+                        if (requests.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'No pending friend requests',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                          );
+                        }
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: requests.length,
+                          itemBuilder: (_, i) {
+                            final request = requests[i];
+                            return FutureBuilder<UserModel?>(
+                              future: FirebaseService.getUserById(request.fromUid),
+                              builder: (context, userSnap) {
+                                final requesterName = userSnap.data?.username ?? 'Unknown user';
+                                return ListTile(
+                                  leading: const CircleAvatar(child: Icon(Icons.person)),
+                                  title: Text(requesterName),
+                                  subtitle: const Text('sent you a friend request'),
+                                  trailing: Wrap(
+                                    spacing: 4,
+                                    children: [
+                                      IconButton(
+                                        onPressed: () => _acceptRequest(request),
+                                        icon: const Icon(Icons.check, color: Colors.green),
+                                      ),
+                                      IconButton(
+                                        onPressed: () => _declineRequest(request),
+                                        icon: const Icon(Icons.close, color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
                     const Divider(height: 32),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),

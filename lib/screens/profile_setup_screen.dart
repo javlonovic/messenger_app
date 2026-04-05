@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_service.dart';
 import '../models/user_model.dart';
 import 'profile_screen.dart';
@@ -18,6 +19,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _bioController = TextEditingController();
   bool _isLoading = false;
 
+  String _readableProfileError(Object error) {
+    if (error is FirebaseException && error.code == 'permission-denied') {
+      return 'Firestore denied profile creation. Update Firestore Rules to allow signed-in users to create their own user document.';
+    }
+    return 'Failed to create profile. Please try again.';
+  }
+
   Future<void> _createProfile() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -32,7 +40,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await FirebaseService.createUserProfile(user);
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_readableProfileError(e))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

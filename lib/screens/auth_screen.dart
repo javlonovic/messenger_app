@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_service.dart';
-import '../models/user_model.dart';
 import 'profile_setup_screen.dart';
-import 'profile_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -18,19 +16,44 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
   bool _isLoading = false;
 
+  String _readableAuthError(Object error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'operation-not-allowed':
+          return 'Email/Password sign-in is disabled in Firebase Console. Enable it in Authentication > Sign-in method.';
+        case 'email-already-in-use':
+          return 'This email is already registered. Try logging in instead.';
+        case 'invalid-email':
+          return 'Please enter a valid email address.';
+        case 'weak-password':
+          return 'Password is too weak. Use at least 6 characters.';
+        case 'user-not-found':
+        case 'wrong-password':
+        case 'invalid-credential':
+          return 'Invalid email or password.';
+        default:
+          return error.message ?? 'Authentication failed. Please try again.';
+      }
+    }
+    return 'Something went wrong. Please try again.';
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
       if (_isLogin) {
         await FirebaseService.login(_emailController.text.trim(), _passwordController.text.trim());
-        if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
       } else {
         final cred = await FirebaseService.register(_emailController.text.trim(), _passwordController.text.trim());
         if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProfileSetupScreen(uid: cred.user!.uid, email: _emailController.text.trim())));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_readableAuthError(e))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

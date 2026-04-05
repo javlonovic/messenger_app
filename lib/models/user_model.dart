@@ -44,6 +44,6 @@ class UserModel {
     'profilePicUrl': profilePicUrl,
     'friends': friends,
     'isOnline': isOnline,
-    'createdAt': createdAt,
+    'createdAt': Timestamp.fromDate(createdAt),
   };
 }
