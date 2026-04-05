@@ -15,16 +15,28 @@ flutter run \
 For release builds, pass the same `--dart-define` values to your build command.
 Here's what's now in the app:
 
-Chat list as home screen with unread counters and last message preview<br>
+Chat list as home screen with unread counters and last message preview
+
 Typing indicator (live, auto-clears after 2s)
+
 Online status + last seen timestamps
+
 Reply to message with preview bar
+
 Message reactions (❤️ 👍 😂 😮 😢 🙏) via long-press
+
 Read receipts (✓ / ✓✓ with blue ticks)
+
 Date dividers (Today / Yesterday / date)
+
 Dark/light theme toggle in profile
+
 Profile picture upload via Cloudinary
+
 Emoji picker in chat
+
 Cached network images for avatars
+
 Edit/delete/copy from long-press menu
+
 Install with adb install -r build/app/outputs/flutter-apk/app-debug.apk.
