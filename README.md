@@ -15,7 +15,7 @@ flutter run \
 For release builds, pass the same `--dart-define` values to your build command.
 Here's what's now in the app:
 
-Chat list as home screen with unread counters and last message preview
+Chat list as home screen with unread counters and last message preview<br>
 Typing indicator (live, auto-clears after 2s)
 Online status + last seen timestamps
 Reply to message with preview bar
