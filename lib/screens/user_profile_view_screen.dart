@@ -104,8 +104,7 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircleAvatar(radius: 60, child: Icon(Icons.person, size: 60)),
-            const SizedBox(height: 16),
+            const CircleAvatar(radius: 60, child: Icon(Icons.person, size: 60)),            const SizedBox(height: 16),
             Text(widget.user.username, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             if (widget.user.bio.isNotEmpty)
               Padding(

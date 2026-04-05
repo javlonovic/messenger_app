@@ -9,6 +9,8 @@ class UserModel {
   final List<String> friends;
   final bool isOnline;
   final DateTime createdAt;
+  final DateTime? lastSeen;
+  final String? fcmToken;
 
   UserModel({
     required this.uid,
@@ -19,6 +21,8 @@ class UserModel {
     this.friends = const [],
     this.isOnline = false,
     required this.createdAt,
+    this.lastSeen,
+    this.fcmToken,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -33,17 +37,23 @@ class UserModel {
       createdAt: map['createdAt'] != null
           ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
+      lastSeen: map['lastSeen'] != null
+          ? (map['lastSeen'] as Timestamp).toDate()
+          : null,
+      fcmToken: map['fcmToken'],
     );
   }
 
   Map<String, dynamic> toMap() => {
-    'uid': uid,
-    'username': username,
-    'email': email,
-    'bio': bio,
-    'profilePicUrl': profilePicUrl,
-    'friends': friends,
-    'isOnline': isOnline,
-    'createdAt': Timestamp.fromDate(createdAt),
-  };
+        'uid': uid,
+        'username': username,
+        'email': email,
+        'bio': bio,
+        'profilePicUrl': profilePicUrl,
+        'friends': friends,
+        'isOnline': isOnline,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'lastSeen': lastSeen != null ? Timestamp.fromDate(lastSeen!) : null,
+        'fcmToken': fcmToken,
+      };
 }
